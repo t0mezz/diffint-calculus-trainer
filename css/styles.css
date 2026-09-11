@@ -1,0 +1,168 @@
+/* Differentiator 1.0 — Apple-2000 platinum.
+ * Pinstripe desktop, striped titlebar with close/zoom boxes,
+ * Geneva labels, Times math set like TeX. Simple and still.
+ */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 24px 12px;
+  font-family: Geneva, "Lucida Grande", Verdana, sans-serif;
+  font-size: 13px;
+  color: #222;
+  background: repeating-linear-gradient(180deg, #ededed 0 1px, #e3e3e3 1px 2px);
+}
+
+.window {
+  width: 100%;
+  max-width: 600px;
+  margin: auto;
+  background: #fff;
+  border: 1px solid #555;
+  border-radius: 6px 6px 4px 4px;
+  box-shadow: 4px 6px 18px rgba(0, 0, 0, .35);
+  overflow: hidden;
+}
+
+/* striped titlebar, close box left, zoom box right */
+.titlebar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  background:
+    repeating-linear-gradient(180deg, rgba(255,255,255,.9) 0 1px, rgba(0,0,0,.06) 1px 2px),
+    linear-gradient(180deg, #f4f4f4, #d4d4d4);
+  border-bottom: 1px solid #777;
+}
+.titlebar h1 {
+  margin: 0 auto;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: bold;
+  background: linear-gradient(180deg, #f4f4f4, #d9d9d9);
+}
+.closebox, .zoombox {
+  width: 11px;
+  height: 11px;
+  border: 1px solid #555;
+  border-top-color: #888;
+  border-left-color: #888;
+  background: linear-gradient(180deg, #fbfbfb, #cfcfcf);
+  flex: none;
+}
+.zoombox { margin-left: auto; }
+.titlebar h1 { position: absolute; left: 50%; transform: translateX(-50%); }
+
+.content { padding: 18px 26px 10px; text-align: center; }
+
+.meta { font-size: 12px; color: #555; }
+.meta .sep { margin: 0 6px; }
+.range select { font: inherit; max-width: 110px; }
+
+.find { margin: 14px 0 4px; color: #444; }
+
+/* TeX-like math in Times */
+.math {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 19px;
+  color: #111;
+}
+.math .v { font-style: italic; }
+.math .fn, .math .c { font-style: normal; }
+.math .fn { margin-right: .06em; }
+.math sup { font-size: .68em; }
+.problem { font-size: 30px; margin: 6px 0 2px; min-height: 44px; }
+.frac { display: inline-block; vertical-align: middle; text-align: center; font-size: .82em; }
+.frac .top { display: block; padding: 0 .5em; border-bottom: 1px solid #111; }
+.frac .bot { display: block; padding: 0 .5em; }
+.rad { border-top: 1px solid #111; padding-top: 1px; }
+
+.hint { min-height: 18px; margin: 4px 0 0; font-size: 12px; font-style: italic; color: #666; }
+
+.answer-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+#answer {
+  width: min(320px, 60vw);
+  font-family: "Courier New", Courier, monospace;
+  font-size: 15px;
+  padding: 3px 6px;
+  border: 1px solid #777;
+  border-top-color: #555;
+  border-left-color: #555;
+  border-radius: 2px;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, .18);
+  outline: none;
+}
+#answer:focus { border-color: #2255aa; box-shadow: inset 1px 1px 2px rgba(0,0,0,.18), 0 0 3px rgba(34,85,170,.6); }
+
+.feedback { min-height: 18px; margin: 6px 0 0; font-size: 12px; color: #444; }
+.feedback.good { color: #1a5c1a; }
+.feedback.bad { color: #a02020; }
+
+/* platinum push buttons, right aligned, default pulses blue */
+.buttons { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.buttons .left { margin-right: auto; }
+.buttons button {
+  font: inherit;
+  font-size: 13px;
+  padding: 2px 14px 3px;
+  color: #111;
+  background: linear-gradient(180deg, #ffffff 0%, #e6e6e6 48%, #d2d2d2 52%, #e2e2e2 100%);
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.buttons button:active {
+  background: linear-gradient(180deg, #cfcfcf, #bdbdbd);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, .25);
+}
+.buttons button.default {
+  color: #fff;
+  border-color: #0f3d8c;
+  background: linear-gradient(180deg, #6aa5ec 0%, #2f76d6 48%, #1660c4 52%, #3a86dd 100%);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.buttons button.default:active { background: linear-gradient(180deg, #2f76d6, #0f3d8c); }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 118, 214, .55); }
+  50% { box-shadow: 0 0 0 3px rgba(47, 118, 214, .45); }
+}
+
+/* answer ticket */
+.ticket {
+  margin: 12px auto 0;
+  max-width: 460px;
+  background: #ffffe8;
+  border: 1px solid #999;
+  padding: 8px 12px;
+  font-size: 12px;
+  text-align: left;
+}
+.ticket .math { font-size: 17px; }
+
+/* status bar and help */
+.statusbar {
+  display: flex;
+  justify-content: space-between;
+  margin: 12px -26px 0;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: #444;
+  background: linear-gradient(180deg, #e8e8e8, #d0d0d0);
+  border-top: 1px solid #999;
+}
+.sound { display: inline-flex; align-items: center; gap: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .buttons button.default { animation: none; }
+}
