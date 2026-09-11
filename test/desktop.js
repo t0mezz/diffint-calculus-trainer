@@ -35,6 +35,9 @@ function setup(seedPos, reduced) {
   };
   const sndEl = { checked: true };
   let starts = 0, resumes = 0;
+  // one shared desktop, like the real DOM where every icon's
+  // offsetParent is the same .desktop element
+  const pad = { clientWidth: 1200, clientHeight: 776 };
   const makeIcon = (href) => {
     const fire = {};
     return {
@@ -42,7 +45,7 @@ function setup(seedPos, reduced) {
       classList: klass(),
       style: {},
       offsetLeft: 48, offsetTop: 40, offsetWidth: 100, offsetHeight: 120,
-      offsetParent: { clientWidth: 1200, clientHeight: 776 },
+      offsetParent: pad,
       setPointerCapture() {},
       querySelector: () => picEl,
       getAttribute: (name) => (name === "data-href" ? href : null),
@@ -94,7 +97,7 @@ function setup(seedPos, reduced) {
 
   eval.call(global, src);
   return {
-    iconEl, iconB, iconC, flashEl, ghostEl, timers, winListeners, setCalls, sndEl,
+    iconEl, iconB, iconC, pad, flashEl, ghostEl, timers, winListeners, setCalls, sndEl,
     get navigated() { return navigatedTo; },
     set navigated(v) { navigatedTo = v; },
     get appended() { return appended; },
@@ -123,34 +126,27 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   if (!ok) failures++;
 }
 
-// Static guard for the icon row: all three icons share one top line,
-// and the gap between icons equals the first icon's own margin to the
-// viewport (--pad-x): one step per icon of margin + icon width
-// (pic width + both button paddings), never stacked.
+// Static guard for the JS-owned home grid: no per-icon position rules
+// may fight it in CSS, and its PAD_X/PAD_Y margins must match the
+// --pad-x/--pad-y viewport margins in CSS.
 {
   const css = fs.readFileSync(path.join(__dirname, "..", "css", "desktop.css"), "utf8");
-  const num = (re) => {
-    const m = css.match(re);
-    return m ? parseInt(m[1], 10) : null;
-  };
   const rule = (id) => {
     const r = css.match(new RegExp("#" + id + "\\s*\\{([^}]*)\\}"));
     return r ? r[1] : "";
   };
-  const padX = num(/--pad-x:\s*(\d+)px/);
-  const picW = num(/\.icon-pic\s*\{[^}]*width:\s*(\d+)px/);
-  const iconPad = num(/\.icon\s*\{[^}]*padding:\s*(\d+)px/);
-  const off = (body) => {
-    const l = body.match(/left:\s*calc\(var\(--pad-x\)\s*\+\s*(\d+)px\)/);
-    return l ? parseInt(l[1], 10) : null;
+  const noOverrides = !/(left|top)\s*:/.test(rule("simpIcon")) &&
+    !/(left|top)\s*:/.test(rule("intIcon")) &&
+    !/(left|top)\s*:/.test(rule("diffIcon"));
+  const cssPad = (name) => {
+    const m = css.match(new RegExp(name + ":\\s*(\\d+)px"));
+    return m ? parseInt(m[1], 10) : null;
   };
-  const simp = rule("simpIcon"), int = rule("intIcon");
-  const step = padX !== null && picW !== null && iconPad !== null
-    ? padX + picW + 2 * iconPad : null;
-  const ok = step !== null &&
-    !/top\s*:/.test(simp) && !/top\s*:/.test(int) &&
-    off(simp) === step && off(int) === 2 * step;
-  console.log((ok ? "ok: " : "FAIL: ") + "icon gaps match the viewport margin");
+  const jm = src.match(/var PAD_X = (\d+), PAD_Y = (\d+);/);
+  const ok = noOverrides && jm &&
+    cssPad("--pad-x") === parseInt(jm[1], 10) &&
+    cssPad("--pad-y") === parseInt(jm[2], 10);
+  console.log((ok ? "ok: " : "FAIL: ") + "home grid owns icon positions, margins in sync");
   if (!ok) failures++;
 }
 
@@ -298,45 +294,67 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   assert(t.starts === heard + 2, "toggle mutes the desktop");
 }
 
-// --- reset behavior: stale storage ignored on load ---
+// --- reset behavior: stale storage ignored, icons home on the grid ---
+// (stub icons are 100x120, PAD 48/40: homes are (48,40), (196,40),
+// (344,40) on a 1200-wide desktop)
 {
   const t = setup({ x: 300, y: 200 });
-  assert(t.iconEl.style.left === undefined && t.iconEl.style.top === undefined,
-    "position reset, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
+  assert(t.iconEl.style.left === "48px" && t.iconEl.style.top === "40px",
+    "first icon homed, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
+  assert(t.iconB.style.left === "196px" && t.iconC.style.left === "344px",
+    "row homed with viewport-margin gaps, got: " + t.iconB.style.left + "/" + t.iconC.style.left);
 }
 
 // --- stale off-screen position ignored on load ---
 {
-  // stored on a big monitor, loaded on a 1200x776 desktop (icon 100x120)
+  // stored on a big monitor, loaded on a 1200x776 desktop
   const t = setup({ x: 1500, y: 900 });
-  assert(t.iconEl.style.left === undefined && t.iconEl.style.top === undefined,
-    "stale position ignored on load, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
+  assert(t.iconEl.style.left === "48px" && t.iconEl.style.top === "40px",
+    "stale position ignored, homed, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
 }
 {
-  // drag, then shrink: the dragged icon is clamped on screen
+  // drag, then shrink: the dragged icon is clamped, the rest reflow
   const t = setup(null);
   t.ptr("pointerdown", { clientX: 60, clientY: 50, pointerId: 1 });
   t.ptr("pointermove", { clientX: 500, clientY: 300 });
   t.ptr("pointerup", {});
   assert(t.iconEl.style.left === "488px", "drag places icon, got: " + t.iconEl.style.left);
-  const pad = t.iconEl.offsetParent;
-  pad.clientWidth = 375; pad.clientHeight = 250; // rotate to a phone
+  const pad = t.pad;
+  pad.clientWidth = 375; pad.clientHeight = 667; // narrow phone portrait
   t.winListeners["resize"]();
-  assert(t.iconEl.style.left === "275px" && t.iconEl.style.top === "130px",
-    "resize pushes icon back on screen, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
+  assert(t.iconEl.style.left === "275px" && t.iconEl.style.top === "290px",
+    "resize pushes dragged icon back on screen, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
+  assert(t.iconC.style.left === "48px" && t.iconC.style.top === "200px",
+    "third icon wraps to row two, got: " + t.iconC.style.left + "/" + t.iconC.style.top);
   pad.clientWidth = 1200; pad.clientHeight = 776;
   t.winListeners["resize"]();
-  assert(t.iconEl.style.left === "275px" && t.iconEl.style.top === "130px",
-    "growing back keeps the clamped spot, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
+  assert(t.iconEl.style.left === "275px" && t.iconEl.style.top === "290px",
+    "growing back keeps the dragged spot, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
+  assert(t.iconC.style.left === "344px" && t.iconC.style.top === "40px",
+    "growing back restores the row, got: " + t.iconC.style.left + "/" + t.iconC.style.top);
   assert(t.setCalls.length === 0, "resize writes nothing to storage");
   pad.clientWidth = 375;
   t.winListeners["pageshow"](); // size changed while on the trainer
   assert(t.iconEl.style.left === "275px", "Back refits to the current size, got: " + t.iconEl.style.left);
+  assert(t.iconC.style.left === "48px", "Back reflows the row, got: " + t.iconC.style.left);
+}
+{
+  // narrow phone column: single file, everything on screen
+  const t = setup(null);
+  t.pad.clientWidth = 200; t.pad.clientHeight = 800;
+  t.winListeners["resize"]();
+  const tops = [t.iconEl, t.iconB, t.iconC].map((ic) => parseInt(ic.style.top, 10));
+  const lefts = [t.iconEl, t.iconB, t.iconC].map((ic) => parseInt(ic.style.left, 10));
+  assert(lefts.every((x) => x === 48), "one column at the margin, got: " + lefts);
+  assert(tops[0] < tops[1] && tops[1] < tops[2], "stacked downward, got: " + tops);
+  const fits = [t.iconEl, t.iconB, t.iconC].every((ic) =>
+    parseInt(ic.style.left, 10) + ic.offsetWidth <= t.pad.clientWidth);
+  assert(fits, "every icon fits on screen");
 }
 {
   const t = setup(null);
   t.winListeners["resize"]();
-  assert(t.iconEl.style.left === undefined, "unmoved icon keeps its CSS padding spot on resize");
+  assert(t.iconEl.style.left === "48px", "unmoved icons rehome on resize");
 }
 {
   // a fresh load forgets even a just-completed drop
@@ -345,8 +363,8 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   t.ptr("pointermove", { clientX: 500, clientY: 300 });
   t.ptr("pointerup", {});
   const fresh = setup(null);
-  assert(fresh.iconEl.style.left === undefined,
-    "reload resets the icon, got: " + fresh.iconEl.style.left);
+  assert(fresh.iconEl.style.left === "48px" && fresh.iconEl.style.left !== "488px",
+    "reload rehomes the icon, got: " + fresh.iconEl.style.left);
 }
 
 console.log(failures === 0 ? "DESKTOP PASS" : failures + " FAILURES");

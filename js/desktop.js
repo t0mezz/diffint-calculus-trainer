@@ -72,7 +72,7 @@
     icons.forEach(function (ic) { ic.classList.remove("selected"); });
     opened = false;
     went = false;
-    icons.forEach(fitIcon); // the window may have changed size while we were away
+    relayout(); // the window may have changed size while we were away
   }
   window.addEventListener("pageshow", reset);
 
@@ -125,19 +125,43 @@
     icon.style.top = Math.round(y) + "px";
   }
 
-  // Keep a dragged icon on screen when the window shrinks. A fresh
-  // load always starts at the CSS padding spot.
-  function fitIcon(icon) {
-    if (drag && drag.icon === icon) return;
+  // Home grid margins mirror css/desktop.css --pad-x/--pad-y
+  // (test/desktop.js keeps them in sync); the horizontal gap between
+  // icons equals the viewport margin PAD_X.
+  var PAD_X = 48, PAD_Y = 40;
+
+  function desk() {
+    return icons[0].offsetParent || {
+      clientWidth: window.innerWidth, clientHeight: window.innerHeight
+    };
+  }
+
+  // Lay out every icon the user has not placed themselves on a grid
+  // that always fits the current screen: as many columns as fit side
+  // by side, wrapping into rows on narrow screens. User-dragged icons
+  // keep their spot, clamped on screen. A fresh load homes everyone —
+  // nothing is remembered across loads.
+  function relayout() {
+    var pad = desk();
+    var iw = icons[0].offsetWidth || 93;
+    var ih = icons[0].offsetHeight || 116;
+    var cols = Math.max(1, Math.floor((pad.clientWidth - PAD_X) / (iw + PAD_X)));
+    icons.forEach(function (icon, i) {
+      if (drag && drag.icon === icon) return;
+      if (icon._moved) { clamp(icon); return; }
+      var c = i % cols, r = Math.floor(i / cols);
+      place(icon, PAD_X + c * (iw + PAD_X), PAD_Y + r * (ih + PAD_Y));
+    });
+  }
+  function clamp(icon) {
     var x = parseInt(icon.style.left, 10);
     var y = parseInt(icon.style.top, 10);
     if (isNaN(x) || isNaN(y)) return;
     place(icon, x, y);
   }
-  function fitAll() {
-    icons.forEach(fitIcon);
-  }
-  window.addEventListener("resize", fitAll);
+  window.addEventListener("resize", relayout);
+  window.addEventListener("load", relayout); // styles may land after this script
+  relayout();
 
   icons.forEach(function (icon) {
     icon.addEventListener("pointerdown", function (e) {
@@ -164,6 +188,7 @@
       icon.classList.remove("dragging");
       if (drag.moved) {
         icon._suppressClick = true;
+        icon._moved = true; // user-placed: relayout clamps it, never rehomes it
         clickSound(0.15); // soft set-down tick
       }
       drag = null;
