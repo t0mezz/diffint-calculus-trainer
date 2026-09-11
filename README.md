@@ -1,9 +1,11 @@
 # Differentiator Mk I
 
-A skeuomorphic derivative trainer. Open `index.html` in a browser — no build,
-no dependencies, no tracking.
+A platinum-styled derivative trainer behind a retro desktop landing page.
+Open `index.html` in a browser — no build, no dependencies, no tracking.
 
-- `index.html` — the bench instrument (LCD, odometers, lamp, levers)
+- `index.html` + `css/desktop.css` + `js/desktop.js` — the desktop:
+  menu bar, clock, one icon, zoom-rect opening animation
+- `differentiator.html` — the trainer window (platinum, TeX-style math)
 - `css/styles.css` — skeuomorphic styling
 - `js/algebra.js` — symbolic backbone: parse, differentiate, simplify,
   evaluate, equivalence-check
@@ -12,3 +14,4 @@ no dependencies, no tracking.
 - `js/app.js` — trainer wiring: streaks, lamp, sounds, tickets
 
 Check the backbone with Node: `node test/smoke.js` (expects `ALL PASS`).
+Check the desktop open flow: `node test/desktop.js` (expects `DESKTOP PASS`).

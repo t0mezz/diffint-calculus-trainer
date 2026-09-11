@@ -22,6 +22,9 @@
     if (!els.sound.checked) return;
     try {
       audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      // The context is born suspended when first created before any click
+      // (page load deals a problem); resume it on every gesture instead.
+      if (audio.state === "suspended") audio.resume();
       var o = audio.createOscillator(), g = audio.createGain();
       o.type = type || "square"; o.frequency.value = freq;
       g.gain.setValueAtTime(gain || 0.05, audio.currentTime);

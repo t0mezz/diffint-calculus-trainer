@@ -1,0 +1,119 @@
+/* Differentiator OS desktop — one icon, one menu bar, one zoom. */
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: Geneva, "Lucida Grande", Verdana, sans-serif;
+  font-size: 13px;
+  color: #222;
+  background:
+    repeating-conic-gradient(#dcdcdc 0 25%, #d2d2d2 0 50%) 0 0 / 4px 4px;
+  overflow: hidden;
+}
+
+/* platinum menu bar */
+.menubar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 3px 12px;
+  background: linear-gradient(180deg, #fbfbfb, #d9d9d9);
+  border-bottom: 1px solid #555;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+  user-select: none;
+}
+.menubar .menu { white-space: nowrap; }
+.snd { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.clock { min-width: 44px; text-align: right; }
+
+/* icon column, top right like the classic */
+.desktop {
+  flex: 1;
+  position: relative;
+  --pad-y: 40px;
+  --pad-x: 48px;
+  padding: var(--pad-y) var(--pad-x);
+}
+
+.icon {
+  position: absolute;
+  left: var(--pad-x);
+  top: var(--pad-y);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 6px;
+  font: inherit;
+  cursor: grab;
+  touch-action: none;
+}
+.icon.dragging { cursor: grabbing; z-index: 5; }
+.icon.dragging .icon-pic {
+  transform: scale(1.06);
+  box-shadow: 5px 9px 14px rgba(0, 0, 0, .45);
+}
+.icon-pic {
+  display: flex;
+  flex-direction: column;
+  width: 81px;
+  height: 81px;
+  background: #fff;
+  border: 1px solid #222;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, .35);
+}
+.icon-title {
+  height: 16px;
+  border-bottom: 1px solid #222;
+  background: repeating-linear-gradient(180deg, #fff 0 1px, #bbb 1px 2px);
+}
+.icon-math {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Times New Roman", Times, serif;
+  font-style: italic;
+  font-size: 28px;
+  color: #111;
+}
+.icon-label {
+  color: #fff;
+  text-shadow: 1px 1px 0 #222;
+  padding: 0 4px;
+}
+.icon.selected .icon-label { background: #00006a; text-shadow: none; }
+.icon:focus-visible { outline: 1px dotted #000; outline-offset: 2px; }
+
+/* 3DS-style launch: a translucent copy of the icon pops over the
+   stationary original... */
+.ghost {
+  position: fixed;
+  margin: 0;
+  pointer-events: none;
+  opacity: .55;
+}
+.ghost.go {
+  transition: transform .25s ease-out, opacity .25s ease-out;
+  transform: scale(3.4);
+  opacity: .45;
+}
+/* ...then a white flash wipes to the trainer, masking the page cut */
+.flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+.flash.on {
+  transition: opacity .25s ease-in;
+  opacity: 1;
+}
