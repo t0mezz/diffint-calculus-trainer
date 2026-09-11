@@ -105,8 +105,9 @@
   }
 
   // Draggable icon: lift while held, free placement, click-vs-drag
-  // disambiguation (a real drag never launches), position remembered.
-  var POS_KEY = "diffIconPos";
+  // disambiguation (a real drag never launches). Position resets on
+  // every load — nothing is remembered.
+  var drag = null, suppressClick = false;
 
   // Clamp inside the desktop itself so the icon never slides under the
   // menu bar or off screen.
@@ -120,19 +121,15 @@
     icon.style.top = Math.round(y) + "px";
   }
 
-  // Where the user last put the icon. Resizes clamp a copy of it, so
-  // shrinking the window pushes the icon in and growing it back
-  // returns the icon to its spot.
-  var want = null;
+  // Keep a dragged icon on screen when the window shrinks. A fresh
+  // load always starts at the CSS padding spot.
   function fit() {
-    if (want && !drag) place(want.x, want.y);
+    if (drag) return;
+    var x = parseInt(icon.style.left, 10);
+    var y = parseInt(icon.style.top, 10);
+    if (isNaN(x) || isNaN(y)) return;
+    place(x, y);
   }
-  try {
-    var saved = JSON.parse(localStorage.getItem(POS_KEY) || "null");
-    if (saved) want = { x: +saved.x || 0, y: +saved.y || 0 };
-  } catch (e) { /* fresh desktop */ }
-  var drag = null, suppressClick = false;
-  fit();
   window.addEventListener("resize", fit);
 
   icon.addEventListener("pointerdown", function (e) {
@@ -153,26 +150,17 @@
     icon.classList.add("dragging");
     place(e.clientX - drag.dx, e.clientY - drag.dy);
   });
-  function endDrag(persist) {
+  function endDrag() {
     if (!drag) return;
     icon.classList.remove("dragging");
     if (drag.moved) {
       suppressClick = true;
       clickSound(0.15); // soft set-down tick
-      want = {
-        x: parseInt(icon.style.left, 10) || 0,
-        y: parseInt(icon.style.top, 10) || 0
-      };
-      if (persist) {
-        try {
-          localStorage.setItem(POS_KEY, JSON.stringify(want));
-        } catch (e) { /* private mode */ }
-      }
     }
     drag = null;
   }
-  icon.addEventListener("pointerup", function () { endDrag(true); });
-  icon.addEventListener("pointercancel", function () { endDrag(false); });
+  icon.addEventListener("pointerup", function () { endDrag(); });
+  icon.addEventListener("pointercancel", function () { endDrag(); });
 
   icon.addEventListener("click", function () {
     if (suppressClick) { suppressClick = false; return; }

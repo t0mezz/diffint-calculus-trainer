@@ -1,7 +1,7 @@
 // Exercises js/desktop.js: click -> ghost pop -> fade + flash -> boot,
 // Back-button pageshow reset, reduced-motion path, and icon dragging
-// (lift, free drop, click suppression, position memory), and keeping
-// the icon on screen across loads, resizes and rotations.
+// (lift, free drop, click suppression, reset behavior), and keeping
+// a dragged icon on screen across resizes.
 // Run: node test/desktop.js   (expects DESKTOP PASS)
 "use strict";
 const fs = require("fs");
@@ -13,8 +13,8 @@ function klass() {
   return { add: (c) => s.add(c), has: (c) => s.has(c), remove: (c) => s.delete(c) };
 }
 
-// Fresh stub DOM + eval. seedPos pre-fills remembered icon position,
-// reduced selects the reduced-motion path.
+// Fresh stub DOM + eval. seedPos pre-fills stale storage to prove it
+// is ignored (reset behavior), reduced selects the reduced-motion path.
 function setup(seedPos, reduced) {
   const timers = [];
   const winListeners = {};
@@ -143,7 +143,7 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   assert(t.appended === null, "no copy spawned under reduced motion");
 }
 
-// --- drag: jitter still opens; real drag moves, suppresses, remembers ---
+// --- drag: jitter still opens; real drag moves, suppresses, resets ---
 {
   const t = setup(null);
   const down = { clientX: 60, clientY: 50, pointerId: 1 };
@@ -165,15 +165,15 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   assert(!t.iconEl.classList.has("dragging"), "lift released on drop");
   t.click();
   assert(t.timers.length === 0, "drag never launches");
-  assert(t.setCalls.length === 1 && t.setCalls[0][1] === '{"x":188,"y":190}',
-    "drop position remembered, got: " + JSON.stringify(t.setCalls));
+  assert(t.setCalls.length === 0,
+    "drop position forgotten, got: " + JSON.stringify(t.setCalls));
 
   t.ptr("pointerdown", down);
   t.ptr("pointermove", { clientX: 300, clientY: 300 });
   t.ptr("pointercancel", {});
   t.click();
   assert(t.timers.length === 0, "cancelled drag never launches");
-  assert(t.setCalls.length === 1, "cancelled drag not remembered");
+  assert(t.setCalls.length === 0, "cancelled drag not remembered");
 
   // drop tick sounds, toggle silences everything
   const heard = t.starts;
@@ -187,22 +187,27 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   assert(t.starts === heard + 2, "toggle mutes the desktop");
 }
 
-// --- remembered position restored on load ---
+// --- reset behavior: stale storage ignored on load ---
 {
   const t = setup({ x: 300, y: 200 });
-  assert(t.iconEl.style.left === "300px" && t.iconEl.style.top === "200px",
-    "position restored, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
+  assert(t.iconEl.style.left === undefined && t.iconEl.style.top === undefined,
+    "position reset, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
 }
 
-// --- icon stays on screen when the desktop is smaller than its spot ---
+// --- stale off-screen position ignored on load ---
 {
-  // saved on a big monitor, loaded on a 1200x776 desktop (icon 100x120)
+  // stored on a big monitor, loaded on a 1200x776 desktop (icon 100x120)
   const t = setup({ x: 1500, y: 900 });
-  assert(t.iconEl.style.left === "1100px" && t.iconEl.style.top === "656px",
-    "off-screen position clamped on load, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
+  assert(t.iconEl.style.left === undefined && t.iconEl.style.top === undefined,
+    "stale position ignored on load, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
 }
 {
-  const t = setup({ x: 300, y: 200 });
+  // drag, then shrink: the dragged icon is clamped on screen
+  const t = setup(null);
+  t.ptr("pointerdown", { clientX: 60, clientY: 50, pointerId: 1 });
+  t.ptr("pointermove", { clientX: 500, clientY: 300 });
+  t.ptr("pointerup", {});
+  assert(t.iconEl.style.left === "488px", "drag places icon, got: " + t.iconEl.style.left);
   const pad = t.iconEl.offsetParent;
   pad.clientWidth = 375; pad.clientHeight = 250; // rotate to a phone
   t.winListeners["resize"]();
@@ -210,9 +215,9 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
     "resize pushes icon back on screen, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
   pad.clientWidth = 1200; pad.clientHeight = 776;
   t.winListeners["resize"]();
-  assert(t.iconEl.style.left === "300px" && t.iconEl.style.top === "200px",
-    "growing back returns icon to its spot, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
-  assert(t.setCalls.length === 0, "resize never overwrites the remembered spot");
+  assert(t.iconEl.style.left === "275px" && t.iconEl.style.top === "130px",
+    "growing back keeps the clamped spot, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
+  assert(t.setCalls.length === 0, "resize writes nothing to storage");
   pad.clientWidth = 375;
   t.winListeners["pageshow"](); // size changed while on the trainer
   assert(t.iconEl.style.left === "275px", "Back refits to the current size, got: " + t.iconEl.style.left);
@@ -223,17 +228,14 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   assert(t.iconEl.style.left === undefined, "unmoved icon keeps its CSS padding spot on resize");
 }
 {
-  // a fresh drop becomes the spot resizes return to
+  // a fresh load forgets even a just-completed drop
   const t = setup(null);
   t.ptr("pointerdown", { clientX: 60, clientY: 50, pointerId: 1 });
   t.ptr("pointermove", { clientX: 500, clientY: 300 });
   t.ptr("pointerup", {});
-  const pad = t.iconEl.offsetParent;
-  pad.clientWidth = 375;
-  t.winListeners["resize"]();
-  pad.clientWidth = 1200;
-  t.winListeners["resize"]();
-  assert(t.iconEl.style.left === "488px", "dropped spot survives a shrink, got: " + t.iconEl.style.left);
+  const fresh = setup(null);
+  assert(fresh.iconEl.style.left === undefined,
+    "reload resets the icon, got: " + fresh.iconEl.style.left);
 }
 
 console.log(failures === 0 ? "DESKTOP PASS" : failures + " FAILURES");
