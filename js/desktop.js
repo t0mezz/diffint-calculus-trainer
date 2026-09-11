@@ -55,6 +55,22 @@
   tick();
   setInterval(tick, 15000);
 
+  // Retro arrow cursor: the drawn arrow follows the pointer 1:1 while
+  // the native one hides — fine pointers only, so touch is untouched.
+  // (No cursor animation, so reduced-motion needs no special path.)
+  var cursorEl = document.getElementById("cursor");
+  var finePointer = window.matchMedia("(pointer: fine)").matches;
+  if (finePointer) {
+    document.addEventListener("mousemove", function (e) {
+      cursorEl.style.transform =
+        "translate(" + e.clientX + "px," + e.clientY + "px)";
+      cursorEl.classList.add("on");
+    });
+    document.addEventListener("mouseout", function (e) {
+      if (!e.relatedTarget) cursorEl.classList.remove("on");
+    });
+  }
+
   var went = false;
   var ghost = null;
   function go(href) {
@@ -80,7 +96,8 @@
   function open(icon) {
     if (opened) return;
     opened = true;
-    icon.classList.add("selected");
+    // no selection highlight: the label never turns blue — not on
+    // press, not mid-drag, not during launch
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       go(icon.getAttribute("data-href"));
       return;
@@ -172,7 +189,6 @@
         sx: e.clientX, sy: e.clientY,
         moved: false
       };
-      icon.classList.add("selected");
       clickSound(0.25);
       try { icon.setPointerCapture(e.pointerId); } catch (err) { /* mouse */ }
     });

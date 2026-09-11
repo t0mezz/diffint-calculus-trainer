@@ -54,6 +54,9 @@ body {
   font: inherit;
   cursor: grab;
   touch-action: none;
+  /* labels must never take a native selection highlight mid-drag */
+  user-select: none;
+  -webkit-user-select: none;
 }
 /* icon homes are assigned by js/desktop.js, which lays the icons on a
    grid that always fits the screen (wrapping into rows when narrow);
@@ -92,7 +95,6 @@ body {
   text-shadow: 1px 1px 0 #222;
   padding: 0 4px;
 }
-.icon.selected .icon-label { background: #00006a; text-shadow: none; }
 .icon:focus-visible { outline: 1px dotted #000; outline-offset: 2px; }
 
 /* 3DS-style launch: a translucent copy of the icon pops over the
@@ -119,4 +121,23 @@ body {
 .flash.on {
   transition: opacity .25s ease-in;
   opacity: 1;
+}
+
+/* drawn retro arrow cursor: follows the pointer 1:1, never intercepts
+   clicks, hidden until the first move */
+.cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+}
+.cursor.on { opacity: 1; }
+/* fine pointers get the drawn arrow instead of the native one;
+   touch keeps its own (no cursor to replace) */
+@media (pointer: fine) {
+  body { cursor: none; }
+  .icon { cursor: none; }
+  .icon.dragging { cursor: none; }
 }

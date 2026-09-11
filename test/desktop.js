@@ -21,6 +21,8 @@ function setup(seedPos, reduced) {
   const setCalls = [];
   const store = seedPos ? { diffIconPos: JSON.stringify(seedPos) } : {};
   const flashEl = { classList: klass() };
+  const cursorEl = { classList: klass(), style: {} };
+  const docListeners = {};
   let appended = null, removedEl = null;
   const ghostEl = {
     classList: klass(),
@@ -67,11 +69,13 @@ function setup(seedPos, reduced) {
   };
   global.document = {
     body: { appendChild: (el) => { appended = el; } },
+    addEventListener: (ev, fn) => { docListeners[ev] = fn; },
     getElementById: (id) => {
       if (id === "diffIcon") return iconEl;
       if (id === "simpIcon") return iconB;
       if (id === "intIcon") return iconC;
       if (id === "flash") return flashEl;
+      if (id === "cursor") return cursorEl;
       if (id === "clock") return { textContent: "" };
       if (id === "sndToggle") return sndEl;
       throw new Error("unexpected id " + id);
@@ -81,7 +85,7 @@ function setup(seedPos, reduced) {
   global.window = {
     innerWidth: 1200, innerHeight: 800,
     location: {},
-    matchMedia: () => ({ matches: !!reduced }),
+    matchMedia: (q) => ({ matches: q === "(pointer: fine)" ? true : !!reduced }),
     addEventListener: (ev, fn) => { winListeners[ev] = fn; },
     AudioContext: AudioStub,
   };
@@ -97,7 +101,8 @@ function setup(seedPos, reduced) {
 
   eval.call(global, src);
   return {
-    iconEl, iconB, iconC, pad, flashEl, ghostEl, timers, winListeners, setCalls, sndEl,
+    iconEl, iconB, iconC, pad, flashEl, cursorEl, doc: docListeners,
+    ghostEl, timers, winListeners, setCalls, sndEl,
     get navigated() { return navigatedTo; },
     set navigated(v) { navigatedTo = v; },
     get appended() { return appended; },
@@ -150,11 +155,49 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   if (!ok) failures++;
 }
 
+// Static guard for drag hygiene: icon labels must never take a native
+// text-selection highlight mid-drag.
+{
+  const css = fs.readFileSync(path.join(__dirname, "..", "css", "desktop.css"), "utf8");
+  const m = css.match(/\.icon\s*\{([^}]*)\}/);
+  const ok = m && /user-select:\s*none/.test(m[1]);
+  console.log((ok ? "ok: " : "FAIL: ") + "icon labels unselectable");
+  if (!ok) failures++;
+}
+
+// Static guard for the drawn cursor: it must never intercept clicks,
+// and the native cursor hides only for fine pointers (touch untouched).
+{
+  const css = fs.readFileSync(path.join(__dirname, "..", "css", "desktop.css"), "utf8");
+  const m = css.match(/\.cursor\s*\{([^}]*)\}/);
+  const passThrough = m && /pointer-events:\s*none/.test(m[1]);
+  const fineOnly = /@media\s*\(pointer:\s*fine\)[\s\S]*?cursor:\s*none/.test(css);
+  const ok = passThrough && fineOnly;
+  console.log((ok ? "ok: " : "FAIL: ") + "cursor passes clicks through, hides natively iff fine");
+  if (!ok) failures++;
+}
+
+// --- retro cursor: hidden until first move, follows 1:1, hides on leave ---
+{
+  const t = setup(null);
+  assert(!t.cursorEl.classList.has("on"), "cursor hidden before first move");
+  t.doc["mousemove"]({ clientX: 120, clientY: 90 });
+  assert(t.cursorEl.classList.has("on"), "cursor appears on move");
+  assert(t.cursorEl.style.transform === "translate(120px,90px)",
+    "cursor follows pointer, got: " + t.cursorEl.style.transform);
+  t.doc["mousemove"]({ clientX: 121, clientY: 91 });
+  assert(t.cursorEl.style.transform === "translate(121px,91px)", "cursor tracks every move");
+  t.doc["mouseout"]({ relatedTarget: {} });
+  assert(t.cursorEl.classList.has("on"), "stays when moving between elements");
+  t.doc["mouseout"]({});
+  assert(!t.cursorEl.classList.has("on"), "hides when leaving the window");
+}
+
 // --- open flow, full motion ---
 {
   const t = setup(null);
   t.click();
-  assert(t.iconEl.classList.has("selected"), "icon selected");
+  assert(!t.iconEl.classList.has("selected"), "launch needs no label highlight");
   assert(t.appended === t.ghostEl, "translucent copy spawned");
   assert(t.ghostEl.classList.has("ghost") && t.ghostEl.classList.has("go"), "copy pops");
   assert(t.ghostEl.style.left === "700px" && t.ghostEl.style.width === "54px", "copy covers icon");
@@ -168,7 +211,7 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   t.winListeners["pageshow"]();
   assert(t.removedEl === t.ghostEl, "copy removed on return");
   assert(!t.flashEl.classList.has("on"), "flash cleared on return");
-  assert(!t.iconEl.classList.has("selected"), "selection cleared on return");
+  assert(!t.iconEl.classList.has("selected"), "no selection lingers on return");
   t.navigated = null;
   t.timers.length = 0;
   t.click();
@@ -192,7 +235,7 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   assert(t.navigated === "simplifier.html", "second icon boots simplifier");
   t.winListeners["pageshow"]();
   assert(!t.iconEl.classList.has("selected") && !t.iconB.classList.has("selected"),
-    "return clears selection on both icons");
+    "no selection on either icon");
   t.navigated = null;
   t.timers.length = 0;
 
@@ -236,7 +279,7 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   assert(!t.iconEl.classList.has("selected") &&
     !t.iconB.classList.has("selected") &&
     !t.iconC.classList.has("selected"),
-    "return clears selection on all icons");
+    "no selection on any icon");
   t.navigated = null;
   t.timers.length = 0;
 
@@ -255,6 +298,7 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   const t = setup(null);
   const down = { clientX: 60, clientY: 50, pointerId: 1 };
   t.ptr("pointerdown", down);
+  assert(!t.iconEl.classList.has("selected"), "press leaves the label alone");
   t.ptr("pointermove", { clientX: 61, clientY: 51 }); // jitter, not a drag
   t.ptr("pointerup", {});
   t.click();
@@ -266,10 +310,12 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   assert(t.starts === 2 && t.resumes === 1, "press clicks once (context resumed)");
   t.ptr("pointermove", { clientX: 200, clientY: 200 });
   assert(t.iconEl.classList.has("dragging"), "icon lifts while dragged");
+  assert(!t.iconEl.classList.has("selected"), "drag never highlights the label");
   assert(t.iconEl.style.left === "188px" && t.iconEl.style.top === "190px",
     "icon follows pointer, got: " + t.iconEl.style.left + "/" + t.iconEl.style.top);
   t.ptr("pointerup", {});
   assert(!t.iconEl.classList.has("dragging"), "lift released on drop");
+  assert(!t.iconEl.classList.has("selected"), "highlight stays off after drop");
   t.click();
   assert(t.timers.length === 0, "drag never launches");
   assert(t.setCalls.length === 0,
