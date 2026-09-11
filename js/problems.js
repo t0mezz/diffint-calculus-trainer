@@ -208,7 +208,7 @@
 
   function generate(difficulty) {
     var pool = POOLS[difficulty] || POOLS.steady;
-    var key, p, tries = 0;
+    var key, p, tries = 0, ok = false;
     do {
       key = pick(pool);
       p = generators[key]();
@@ -217,9 +217,13 @@
       p.ast = ast;
       p.expected = global.Algebra.simplify(global.Algebra.differentiate(ast));
       tries++;
-    } while (tries < 12 &&
-      (key === lastKey || recentSources.indexOf(p.source) >= 0 ||
-        coverage(p.ast) < 5));
+      // Fairness is unconditional: never deal a problem whose answer
+      // cannot be checked. Freshness is best-effort with a generous
+      // budget — a hard cap would return the last candidate unchecked.
+      var fair = coverage(p.ast) >= 5;
+      var fresh = key !== lastKey && recentSources.indexOf(p.source) < 0;
+      ok = fair && (fresh || tries > 200);
+    } while (!ok);
     lastKey = key;
     recentSources.push(p.source);
     if (recentSources.length > 12) recentSources.shift();

@@ -138,7 +138,9 @@
   };
 
   // Anti-repeat: no identical source twice in a row, and no repeat
-  // of anything seen in the last few tickets.
+  // of anything seen in the last few tickets. The window stays small
+  // on purpose: these pools run few distinct identity shapes, and a
+  // deep memory would collide on every draw and starve small families.
   var lastKey = null, recentSources = [];
 
   // A problem is only fair if answers to it can actually be checked:
@@ -166,7 +168,7 @@
 
   function generate(difficulty) {
     var pool = POOLS[difficulty] || POOLS.steady;
-    var key, p, tries = 0;
+    var key, p, tries = 0, ok = false;
     do {
       key = pick(pool);
       p = generators[key]();
@@ -176,14 +178,19 @@
       p.ast = ast;
       p.expectedAst = want;
       tries++;
-    } while (tries < 12 &&
-      (key === lastKey || recentSources.indexOf(p.source) >= 0 ||
-        coverage(p.ast) < 5 ||
-        !global.Algebra.equivalent(p.ast, p.expectedAst) ||
-        nodeCount(p.ast) <= nodeCount(p.expectedAst)));
+      // Fairness is unconditional: never deal a problem whose answer
+      // cannot be checked or that is not strictly simplifying.
+      // Freshness is best-effort with a generous budget — a hard cap
+      // would return the last candidate unchecked.
+      var fair = coverage(p.ast) >= 5 &&
+        global.Algebra.equivalent(p.ast, p.expectedAst) &&
+        nodeCount(p.ast) > nodeCount(p.expectedAst);
+      var fresh = key !== lastKey && recentSources.indexOf(p.source) < 0;
+      ok = fair && (fresh || tries > 200);
+    } while (!ok);
     lastKey = key;
     recentSources.push(p.source);
-    if (recentSources.length > 12) recentSources.shift();
+    if (recentSources.length > 4) recentSources.shift();
     p.difficulty = difficulty;
     p.solution = global.Algebra.toString(p.expectedAst);
     return p;
