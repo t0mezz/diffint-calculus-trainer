@@ -1,8 +1,12 @@
-/* desktop.js — clock, draggable icon, click sounds, 3DS-style launch. */
+/* desktop.js — clock, draggable icons, click sounds, 3DS-style launch. */
 (function () {
   "use strict";
 
-  var icon = document.getElementById("diffIcon");
+  var icons = [
+    document.getElementById("diffIcon"),
+    document.getElementById("simpIcon"),
+    document.getElementById("intIcon")
+  ];
   var flash = document.getElementById("flash");
   var clock = document.getElementById("clock");
   var sndToggle = document.getElementById("sndToggle");
@@ -53,10 +57,10 @@
 
   var went = false;
   var ghost = null;
-  function go() {
+  function go(href) {
     if (went) return;
     went = true;
-    window.location.href = "differentiator.html";
+    window.location.href = href;
   }
 
   // Back-button hygiene: leave the desktop exactly as it was —
@@ -65,20 +69,20 @@
     if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
     ghost = null;
     flash.classList.remove("on");
-    icon.classList.remove("selected");
+    icons.forEach(function (ic) { ic.classList.remove("selected"); });
     opened = false;
     went = false;
-    fit(); // the window may have changed size while we were away
+    icons.forEach(fitIcon); // the window may have changed size while we were away
   }
   window.addEventListener("pageshow", reset);
 
   var opened = false;
-  function open() {
+  function open(icon) {
     if (opened) return;
     opened = true;
     icon.classList.add("selected");
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      go();
+      go(icon.getAttribute("data-href"));
       return;
     }
     // 3DS-style: a translucent copy pops over the stationary icon,
@@ -101,17 +105,17 @@
       ghost.style.opacity = "0";
       flash.classList.add("on");
     }, 230);
-    setTimeout(go, 380);
+    setTimeout(function () { go(icon.getAttribute("data-href")); }, 380);
   }
 
-  // Draggable icon: lift while held, free placement, click-vs-drag
+  // Draggable icons: lift while held, free placement, click-vs-drag
   // disambiguation (a real drag never launches). Position resets on
   // every load — nothing is remembered.
-  var drag = null, suppressClick = false;
+  var drag = null; // at most one active drag: { icon, dx, dy, sx, sy, moved }
 
   // Clamp inside the desktop itself so the icon never slides under the
   // menu bar or off screen.
-  function place(x, y) {
+  function place(icon, x, y) {
     var pad = icon.offsetParent || {
       clientWidth: window.innerWidth, clientHeight: window.innerHeight
     };
@@ -123,47 +127,53 @@
 
   // Keep a dragged icon on screen when the window shrinks. A fresh
   // load always starts at the CSS padding spot.
-  function fit() {
-    if (drag) return;
+  function fitIcon(icon) {
+    if (drag && drag.icon === icon) return;
     var x = parseInt(icon.style.left, 10);
     var y = parseInt(icon.style.top, 10);
     if (isNaN(x) || isNaN(y)) return;
-    place(x, y);
+    place(icon, x, y);
   }
-  window.addEventListener("resize", fit);
+  function fitAll() {
+    icons.forEach(fitIcon);
+  }
+  window.addEventListener("resize", fitAll);
 
-  icon.addEventListener("pointerdown", function (e) {
-    drag = {
-      dx: e.clientX - icon.offsetLeft,
-      dy: e.clientY - icon.offsetTop,
-      sx: e.clientX, sy: e.clientY,
-      moved: false
-    };
-    icon.classList.add("selected");
-    clickSound(0.25);
-    try { icon.setPointerCapture(e.pointerId); } catch (err) { /* mouse */ }
-  });
-  icon.addEventListener("pointermove", function (e) {
-    if (!drag) return;
-    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
-    drag.moved = true;
-    icon.classList.add("dragging");
-    place(e.clientX - drag.dx, e.clientY - drag.dy);
-  });
-  function endDrag() {
-    if (!drag) return;
-    icon.classList.remove("dragging");
-    if (drag.moved) {
-      suppressClick = true;
-      clickSound(0.15); // soft set-down tick
+  icons.forEach(function (icon) {
+    icon.addEventListener("pointerdown", function (e) {
+      drag = {
+        icon: icon,
+        dx: e.clientX - icon.offsetLeft,
+        dy: e.clientY - icon.offsetTop,
+        sx: e.clientX, sy: e.clientY,
+        moved: false
+      };
+      icon.classList.add("selected");
+      clickSound(0.25);
+      try { icon.setPointerCapture(e.pointerId); } catch (err) { /* mouse */ }
+    });
+    icon.addEventListener("pointermove", function (e) {
+      if (!drag || drag.icon !== icon) return;
+      if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+      drag.moved = true;
+      icon.classList.add("dragging");
+      place(icon, e.clientX - drag.dx, e.clientY - drag.dy);
+    });
+    function endDrag() {
+      if (!drag || drag.icon !== icon) return;
+      icon.classList.remove("dragging");
+      if (drag.moved) {
+        icon._suppressClick = true;
+        clickSound(0.15); // soft set-down tick
+      }
+      drag = null;
     }
-    drag = null;
-  }
-  icon.addEventListener("pointerup", function () { endDrag(); });
-  icon.addEventListener("pointercancel", function () { endDrag(); });
+    icon.addEventListener("pointerup", function () { endDrag(); });
+    icon.addEventListener("pointercancel", function () { endDrag(); });
 
-  icon.addEventListener("click", function () {
-    if (suppressClick) { suppressClick = false; return; }
-    open();
+    icon.addEventListener("click", function () {
+      if (icon._suppressClick) { icon._suppressClick = false; return; }
+      open(icon);
+    });
   });
 })();

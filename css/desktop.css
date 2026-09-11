@@ -1,4 +1,4 @@
-/* Differentiator OS desktop — one icon, one menu bar, one zoom. */
+/* Differentiator OS desktop — three icons, one menu bar, one zoom. */
 
 * { box-sizing: border-box; }
 
@@ -55,6 +55,9 @@ body {
   cursor: grab;
   touch-action: none;
 }
+/* extra icons stack below the first: pic + label + gaps each */
+#simpIcon { top: calc(var(--pad-y) + 140px); }
+#intIcon { top: calc(var(--pad-y) + 280px); }
 .icon.dragging { cursor: grabbing; z-index: 5; }
 .icon.dragging .icon-pic {
   transform: scale(1.06);

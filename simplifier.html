@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simplifier 1.0</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="window" role="main" aria-label="Identity simplifier">
+    <div class="titlebar">
+      <span class="closebox" aria-hidden="true"></span>
+      <h1>Simplifier 1.0</h1>
+      <span class="zoombox" aria-hidden="true"></span>
+    </div>
+
+    <div class="content">
+      <div class="meta">
+        <span id="ruleTag">Pythagorean identity</span>
+        <span class="sep">&middot;</span>
+        <span id="probNo">No. 001</span>
+        <span class="sep">&middot;</span>
+        <label class="range">Range:
+          <select id="range" aria-label="Difficulty">
+            <option value="warmup">Warm-up</option>
+            <option value="steady" selected>Steady</option>
+            <option value="spicy">Spicy</option>
+          </select>
+        </label>
+      </div>
+
+      <p class="find">Simplify</p>
+      <div class="math problem" id="problem" aria-live="polite"></div>
+      <p class="hint" id="hint"></p>
+
+      <div class="answer-row">
+        <span class="math">=</span>
+        <input id="answer" type="text" autocomplete="off" spellcheck="false"
+               aria-label="Your simplification">
+      </div>
+      <p class="feedback" id="feedback" aria-live="polite"></p>
+
+      <div class="buttons">
+        <button id="help" type="button" class="left">Help</button>
+        <button id="reveal" type="button">Reveal</button>
+        <button id="next" type="button">New Problem</button>
+        <button id="check" type="button" class="default">Check</button>
+      </div>
+
+      <div class="ticket" id="helpbox" hidden>
+        <b>Notation.</b> Type answers like
+        <span class="math">1</span> or
+        <span class="math">cos(2<i class="v">x</i>)</span> — use
+        <b>x + - * / ^</b>, <b>sin cos tan exp log sqrt</b>, <b>pi</b>, <b>e</b>.
+        <span class="math">2<i class="v">x</i></span> works for
+        <span class="math">2·<i class="v">x</i></span>. Any <b>simpler</b> equal
+        form counts — restating the problem does not.
+      </div>
+
+      <div class="ticket" id="ticket" hidden>
+        <span class="ticket-x" aria-hidden="true"></span>
+        <div id="ticketBody"></div>
+      </div>
+
+      <div class="statusbar">
+        <span id="stats">Streak 0 &middot; Solved 0</span>
+        <label class="sound"><input type="checkbox" id="sound" checked> Sound</label>
+      </div>
+    </div>
+  </div>
+
+<script src="js/algebra.js"></script>
+<script src="js/simproblems.js"></script>
+<script src="js/tex.js"></script>
+<script src="js/simpapp.js"></script>
+</body>
+</html>

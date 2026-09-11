@@ -33,18 +33,25 @@ function setup(seedPos, reduced) {
     getBoundingClientRect: () => ({ left: 700, top: 20, width: 54, height: 54 }),
     cloneNode: () => ghostEl,
   };
-  const fire = {};
   const sndEl = { checked: true };
   let starts = 0, resumes = 0;
-  const iconEl = {
-    classList: klass(),
-    style: {},
-    offsetLeft: 48, offsetTop: 40, offsetWidth: 100, offsetHeight: 120,
-    offsetParent: { clientWidth: 1200, clientHeight: 776 },
-    setPointerCapture() {},
-    querySelector: () => picEl,
-    addEventListener: (ev, fn) => { fire[ev] = fn; },
+  const makeIcon = (href) => {
+    const fire = {};
+    return {
+      fire,
+      classList: klass(),
+      style: {},
+      offsetLeft: 48, offsetTop: 40, offsetWidth: 100, offsetHeight: 120,
+      offsetParent: { clientWidth: 1200, clientHeight: 776 },
+      setPointerCapture() {},
+      querySelector: () => picEl,
+      getAttribute: (name) => (name === "data-href" ? href : null),
+      addEventListener: (ev, fn) => { fire[ev] = fn; },
+    };
   };
+  const iconEl = makeIcon("differentiator.html");
+  const iconB = makeIcon("simplifier.html");
+  const iconC = makeIcon("integrator.html");
   var AudioStub = function () {
     this.state = "suspended";
     this.sampleRate = 44100;
@@ -59,6 +66,8 @@ function setup(seedPos, reduced) {
     body: { appendChild: (el) => { appended = el; } },
     getElementById: (id) => {
       if (id === "diffIcon") return iconEl;
+      if (id === "simpIcon") return iconB;
+      if (id === "intIcon") return iconC;
       if (id === "flash") return flashEl;
       if (id === "clock") return { textContent: "" };
       if (id === "sndToggle") return sndEl;
@@ -85,15 +94,19 @@ function setup(seedPos, reduced) {
 
   eval.call(global, src);
   return {
-    iconEl, flashEl, ghostEl, timers, winListeners, setCalls, sndEl,
+    iconEl, iconB, iconC, flashEl, ghostEl, timers, winListeners, setCalls, sndEl,
     get navigated() { return navigatedTo; },
     set navigated(v) { navigatedTo = v; },
     get appended() { return appended; },
     get removedEl() { return removedEl; },
     get starts() { return starts; },
     get resumes() { return resumes; },
-    click() { fire["click"](); },
-    ptr(ev, arg) { fire[ev](arg); },
+    click() { iconEl.fire["click"](); },
+    ptr(ev, arg) { iconEl.fire[ev](arg); },
+    clickB() { iconB.fire["click"](); },
+    ptrB(ev, arg) { iconB.fire[ev](arg); },
+    clickC() { iconC.fire["click"](); },
+    ptrC(ev, arg) { iconC.fire[ev](arg); },
   };
 }
 
@@ -141,6 +154,73 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   t.click();
   assert(t.navigated === "differentiator.html", "reduced motion boots at once");
   assert(t.appended === null, "no copy spawned under reduced motion");
+}
+
+// --- second icon: boots the simplifier, drags independently ---
+{
+  const t = setup(null);
+  t.clickB();
+  assert(t.timers.length === 2, "second icon queues launch timers");
+  t.timers[0](); t.timers[1]();
+  assert(t.navigated === "simplifier.html", "second icon boots simplifier");
+  t.winListeners["pageshow"]();
+  assert(!t.iconEl.classList.has("selected") && !t.iconB.classList.has("selected"),
+    "return clears selection on both icons");
+  t.navigated = null;
+  t.timers.length = 0;
+
+  // a drag on the first icon suppresses only its own click
+  const down = { clientX: 60, clientY: 50, pointerId: 1 };
+  t.ptr("pointerdown", down);
+  t.ptr("pointermove", { clientX: 200, clientY: 200 });
+  t.ptr("pointerup", {});
+  t.click();
+  assert(t.timers.length === 0, "dragged icon still suppressed");
+  t.clickB();
+  assert(t.timers.length === 2, "other icon still launches");
+
+  // the second icon drags too
+  t.winListeners["pageshow"]();
+  t.timers.length = 0;
+  t.ptrB("pointerdown", down);
+  t.ptrB("pointermove", { clientX: 300, clientY: 120 });
+  assert(t.iconB.style.left === "288px" && t.iconB.style.top === "110px",
+    "second icon follows pointer, got: " + t.iconB.style.left + "/" + t.iconB.style.top);
+  t.ptrB("pointerup", {});
+  t.clickB();
+  assert(t.timers.length === 0, "second-icon drag never launches");
+}
+
+// --- reduced motion on the second icon ---
+{
+  const t = setup(null, true);
+  t.clickB();
+  assert(t.navigated === "simplifier.html", "reduced motion boots simplifier at once");
+}
+
+// --- third icon: boots the integrator, drags too ---
+{
+  const t = setup(null);
+  t.clickC();
+  assert(t.timers.length === 2, "third icon queues launch timers");
+  t.timers[0](); t.timers[1]();
+  assert(t.navigated === "integrator.html", "third icon boots integrator");
+  t.winListeners["pageshow"]();
+  assert(!t.iconEl.classList.has("selected") &&
+    !t.iconB.classList.has("selected") &&
+    !t.iconC.classList.has("selected"),
+    "return clears selection on all icons");
+  t.navigated = null;
+  t.timers.length = 0;
+
+  const down = { clientX: 60, clientY: 50, pointerId: 1 };
+  t.ptrC("pointerdown", down);
+  t.ptrC("pointermove", { clientX: 300, clientY: 400 });
+  assert(t.iconC.style.left === "288px" && t.iconC.style.top === "390px",
+    "third icon follows pointer, got: " + t.iconC.style.left + "/" + t.iconC.style.top);
+  t.ptrC("pointerup", {});
+  t.clickC();
+  assert(t.timers.length === 0, "third-icon drag never launches");
 }
 
 // --- drag: jitter still opens; real drag moves, suppresses, resets ---
