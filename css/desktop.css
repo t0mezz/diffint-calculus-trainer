@@ -55,9 +55,12 @@ body {
   cursor: grab;
   touch-action: none;
 }
-/* extra icons stack below the first: pic + label + gaps each */
-#simpIcon { top: calc(var(--pad-y) + 140px); }
-#intIcon { top: calc(var(--pad-y) + 280px); }
+/* icon row: the gap between icons equals the first icon's own margin
+   to the viewport (--pad-x = 48px), so the row marches pad, icon, pad,
+   icon, pad ... : one icon width (81px pic + 2x6px button padding = 93px)
+   plus one 48px margin per step (141px). */
+#simpIcon { left: calc(var(--pad-x) + 141px); }
+#intIcon { left: calc(var(--pad-x) + 282px); }
 .icon.dragging { cursor: grabbing; z-index: 5; }
 .icon.dragging .icon-pic {
   transform: scale(1.06);

@@ -123,6 +123,37 @@ const assert = (c, m) => { console.log((c ? "ok: " : "FAIL: ") + m); if (!c) fai
   if (!ok) failures++;
 }
 
+// Static guard for the icon row: all three icons share one top line,
+// and the gap between icons equals the first icon's own margin to the
+// viewport (--pad-x): one step per icon of margin + icon width
+// (pic width + both button paddings), never stacked.
+{
+  const css = fs.readFileSync(path.join(__dirname, "..", "css", "desktop.css"), "utf8");
+  const num = (re) => {
+    const m = css.match(re);
+    return m ? parseInt(m[1], 10) : null;
+  };
+  const rule = (id) => {
+    const r = css.match(new RegExp("#" + id + "\\s*\\{([^}]*)\\}"));
+    return r ? r[1] : "";
+  };
+  const padX = num(/--pad-x:\s*(\d+)px/);
+  const picW = num(/\.icon-pic\s*\{[^}]*width:\s*(\d+)px/);
+  const iconPad = num(/\.icon\s*\{[^}]*padding:\s*(\d+)px/);
+  const off = (body) => {
+    const l = body.match(/left:\s*calc\(var\(--pad-x\)\s*\+\s*(\d+)px\)/);
+    return l ? parseInt(l[1], 10) : null;
+  };
+  const simp = rule("simpIcon"), int = rule("intIcon");
+  const step = padX !== null && picW !== null && iconPad !== null
+    ? padX + picW + 2 * iconPad : null;
+  const ok = step !== null &&
+    !/top\s*:/.test(simp) && !/top\s*:/.test(int) &&
+    off(simp) === step && off(int) === 2 * step;
+  console.log((ok ? "ok: " : "FAIL: ") + "icon gaps match the viewport margin");
+  if (!ok) failures++;
+}
+
 // --- open flow, full motion ---
 {
   const t = setup(null);
