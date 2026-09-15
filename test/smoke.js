@@ -6,6 +6,7 @@ const DIR = path.join(__dirname, "..", "js");
 
 global.window = global;
 require(path.join(DIR, "algebra.js"));
+require(path.join(DIR, "pool.js"));
 require(path.join(DIR, "problems.js"));
 
 let failures = 0;
@@ -31,6 +32,17 @@ function assert(cond, msg) {
 ].forEach(([src, want]) => {
   const got = Algebra.differentiate(Algebra.parse(src));
   assert(Algebra.equivalent(got, Algebra.parse(want)), `${src} -> ${want}`);
+});
+
+// toString must round-trip through parse. Unary minus binds tighter
+// than ^ in this parser, so a bare "-x^2" reads back as (-x)^2.
+[
+  "-1*x^2/2", "-1*x^4", "-1*sqrt(x)^3/3", "-1*cos(2*x)/2", "-4*x^3 + 1/x",
+].forEach((src) => {
+  const a = Algebra.simplify(Algebra.parse(src));
+  const printed = Algebra.toString(a);
+  assert(Algebra.equivalent(Algebra.parse(printed), a),
+    `round-trip: ${src} printed as ${printed}`);
 });
 
 // Equivalent forms accepted, wrong rejected, bad syntax throws
@@ -77,6 +89,28 @@ const uglyRe = [
       `finite-diff mismatch: ${p.source} -> ${p.solution}`);
   }
 });
+
+
+// Variety: the point of the shape-keyed anti-repeat. Coefficients
+// shuffling is not variety — what must not repeat is the shape, the
+// source with every number blanked out. Assert both that consecutive
+// draws differ in shape and that a run of draws spans a decent slice
+// of the pool, so a future narrowing of the generators is caught here
+// rather than felt by the trainee.
+{
+  const FLOOR = { warmup: 8, steady: 14, spicy: 16 };
+  ["warmup", "steady", "spicy"].forEach((d) => {
+    const seen = {};
+    let n = 0, last = null;
+    for (let i = 0; i < 60; i++) {
+      const sh = Pool.shapeOf(Problems.generate(d).source);
+      assert(sh !== last, `no consecutive shape repeat in ${d}: ${sh}`);
+      last = sh;
+      if (!seen[sh]) { seen[sh] = 1; n++; }
+    }
+    assert(n >= FLOOR[d], `${d}: ${n} distinct shapes in 60 draws (want ${FLOOR[d]}+)`);
+  });
+}
 
 console.log(failures === 0 ? "ALL PASS" : `${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);

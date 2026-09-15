@@ -393,8 +393,11 @@
       case "var": return "x";
       case "const": return n.name;
       case "un": {
+        // Unary minus binds tighter than ^ in this parser, so "-x^2"
+        // would read back as (-x)^2. Parenthesize anything that is not
+        // an atom to keep toString round-trippable through parse.
         var s = toString(n.a);
-        if (prec(n.a) < 3) s = "(" + s + ")";
+        if (prec(n.a) < 4) s = "(" + s + ")";
         return "-" + s;
       }
       case "bin": {

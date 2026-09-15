@@ -6,15 +6,7 @@
 (function (global) {
   "use strict";
 
-  function ri(lo, hi) {
-    return lo + Math.floor(Math.random() * (hi - lo + 1));
-  }
-  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  function nz(lo, hi) {
-    var v = 0;
-    while (v === 0) v = ri(lo, hi);
-    return v;
-  }
+  var ri = global.Pool.ri, pick = global.Pool.pick, nz = global.Pool.nz;
   function term(c, pow) {
     // pretty monomial: 3x^2, -x, 5
     if (pow === 0) return String(c);
@@ -187,10 +179,6 @@
       "chainPoly", "product", "quotient", "log", "logChain", "reciprocal"]
   };
 
-  // Anti-repeat: no identical source twice in a row, and no repeat
-  // of anything seen in the last few tickets.
-  var lastKey = null, recentSources = [];
-
   // A problem is only fair if answers to it can actually be checked:
   // count sample points where the problem itself evaluates finite.
   // (The checker skips points where either side is non-finite, so this
@@ -208,25 +196,20 @@
 
   function generate(difficulty) {
     var pool = POOLS[difficulty] || POOLS.steady;
-    var key, p, tries = 0, ok = false;
-    do {
-      key = pick(pool);
-      p = generators[key]();
-      // parseable source of truth + expected derivative
-      var ast = global.Algebra.parse(p.source);
-      p.ast = ast;
-      p.expected = global.Algebra.simplify(global.Algebra.differentiate(ast));
-      tries++;
-      // Fairness is unconditional: never deal a problem whose answer
-      // cannot be checked. Freshness is best-effort with a generous
-      // budget — a hard cap would return the last candidate unchecked.
-      var fair = coverage(p.ast) >= 5;
-      var fresh = key !== lastKey && recentSources.indexOf(p.source) < 0;
-      ok = fair && (fresh || tries > 200);
-    } while (!ok);
-    lastKey = key;
-    recentSources.push(p.source);
-    if (recentSources.length > 12) recentSources.shift();
+    var name = POOLS[difficulty] ? difficulty : "steady";
+    var p = global.Pool.deal({
+      trainer: "differentiate",
+      pool: name,
+      keys: pool,
+      make: function (key) { return generators[key](); },
+      fair: function (c) {
+        // parseable source of truth + expected derivative
+        c.ast = global.Algebra.parse(c.source);
+        c.expected = global.Algebra.simplify(
+          global.Algebra.differentiate(c.ast));
+        return coverage(c.ast) >= 5;
+      }
+    });
     p.difficulty = difficulty;
     p.solution = global.Algebra.toString(p.expected);
     return p;

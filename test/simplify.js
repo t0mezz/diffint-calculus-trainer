@@ -8,6 +8,7 @@ const DIR = path.join(__dirname, "..", "js");
 
 global.window = global;
 require(path.join(DIR, "algebra.js"));
+require(path.join(DIR, "pool.js"));
 require(path.join(DIR, "simproblems.js"));
 
 let failures = 0;
@@ -81,6 +82,10 @@ function assert(cond, msg) {
         `equivalent: ${p.source} -> ${p.solution}`);
       assert(SimProblems.nodeCount(p.ast) > SimProblems.nodeCount(p.expectedAst),
         `strictly simpler: ${p.source} -> ${p.solution}`);
+      // solution must survive a round-trip through the printer: toString
+      // once rendered -(x^2) as "-x^2", which parses back as (-x)^2
+      assert(SimProblems.check(p.solution, p) === "good",
+        `solution accepted: ${p.source} -> ${p.solution}`);
       assert(!uglyRe.some((re) => re.test(p.solution)),
         `clean print: ${p.solution}`);
       assert(p.source !== last, `no immediate repeat: ${p.source}`);
@@ -95,6 +100,28 @@ function assert(cond, msg) {
       assert(typeof p.hint === "string" && p.hint.length > 0, `hint: ${p.source}`);
       assert(typeof p.rule === "string" && p.rule.length > 0, `rule: ${p.source}`);
     }
+  });
+}
+
+
+// Variety: the point of the shape-keyed anti-repeat. Coefficients
+// shuffling is not variety — what must not repeat is the shape, the
+// source with every number blanked out. Assert both that consecutive
+// draws differ in shape and that a run of draws spans a decent slice
+// of the pool, so a future narrowing of the generators is caught here
+// rather than felt by the trainee.
+{
+  const FLOOR = { warmup: 14, steady: 28, spicy: 28 };
+  ["warmup", "steady", "spicy"].forEach((d) => {
+    const seen = {};
+    let n = 0, last = null;
+    for (let i = 0; i < 60; i++) {
+      const sh = Pool.shapeOf(SimProblems.generate(d).source);
+      assert(sh !== last, `no consecutive shape repeat in ${d}: ${sh}`);
+      last = sh;
+      if (!seen[sh]) { seen[sh] = 1; n++; }
+    }
+    assert(n >= FLOOR[d], `${d}: ${n} distinct shapes in 60 draws (want ${FLOOR[d]}+)`);
   });
 }
 

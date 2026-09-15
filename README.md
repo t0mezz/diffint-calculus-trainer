@@ -10,11 +10,14 @@ Open `index.html` in a browser — no build, no dependencies, no tracking.
   identities trainer: simplify trig / exp / log expressions; answers
   must be equal AND smaller
 - `integrator.html` + `js/intproblems.js` + `js/intapp.js` — the
-  integrator: indefinite integrals of single terms (power, trig,
-  exp, log, roots); answers graded by differentiation, +C omitted
+  integrator: indefinite integrals composed from terms (power, trig,
+  exp, log, roots, 1/cos²) and sums of them; answers graded by
+  differentiation, +C omitted
 - `css/styles.css` — skeuomorphic styling
 - `js/algebra.js` — symbolic backbone: parse, differentiate, simplify,
   evaluate, equivalence-check
+- `js/pool.js` — shared dealing machinery: shape-keyed anti-repeat and
+  variety-weighted family selection, used by all three trainers
 - `js/problems.js` — random pool of nicely-differentiable functions
   (Warm-up / Steady / Spicy)
 - `js/app.js` — trainer wiring: streaks, lamp, sounds, tickets

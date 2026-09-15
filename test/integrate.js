@@ -9,6 +9,7 @@ const DIR = path.join(__dirname, "..", "js");
 
 global.window = global;
 require(path.join(DIR, "algebra.js"));
+require(path.join(DIR, "pool.js"));
 require(path.join(DIR, "intproblems.js"));
 
 let failures = 0;
@@ -89,6 +90,28 @@ function differentiatesBack(src, want) {
     }
   });
   assert(spicyHard > 0, `spicy deals harder shapes (${spicyHard} seen)`);
+}
+
+
+// Variety: the point of the shape-keyed anti-repeat. Coefficients
+// shuffling is not variety — what must not repeat is the shape, the
+// source with every number blanked out. Assert both that consecutive
+// draws differ in shape and that a run of draws spans a decent slice
+// of the pool, so a future narrowing of the generators is caught here
+// rather than felt by the trainee.
+{
+  const FLOOR = { warmup: 25, steady: 25, spicy: 30 };
+  ["warmup", "steady", "spicy"].forEach((d) => {
+    const seen = {};
+    let n = 0, last = null;
+    for (let i = 0; i < 60; i++) {
+      const sh = Pool.shapeOf(IntProblems.generate(d).source);
+      assert(sh !== last, `no consecutive shape repeat in ${d}: ${sh}`);
+      last = sh;
+      if (!seen[sh]) { seen[sh] = 1; n++; }
+    }
+    assert(n >= FLOOR[d], `${d}: ${n} distinct shapes in 60 draws (want ${FLOOR[d]}+)`);
+  });
 }
 
 console.log(failures === 0 ? "INTEGRATE PASS" : failures + " FAILURES");
